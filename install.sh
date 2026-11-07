@@ -75,13 +75,14 @@ tee /usr/local/bin/jellyfin-systemd-inhibit.sh << JELLYFIN_INHIBITOR_SCRIPT
 
 jellyfin_url=$jf_url
 jellyfin_key=$api_key
+jellyfin_delay=$jf_delay
 pid="jellyfin-systemd-inhibitor.lock"
 
 check_jellyfin_sessions()
 {
     session_response=\$(curl -H "Authorization: MediaBrowser Token=\$jellyfin_key" "\$jellyfin_url/Sessions?activeWithinSeconds=30")
 
-    if [ \$session_response = "[]" ]; then
+    if [ "\$session_response" = "[]" ]; then
         return 1
     fi
 
@@ -90,7 +91,7 @@ check_jellyfin_sessions()
 
 kill_inhibitor_process()
 {
-    sudo kill \$(</run/lock/"\$pid"/pid)
+    sudo kill "\$(</run/lock/"\$pid"/pid)"
     sudo rm -rf /run/lock/"\$pid"
 }
 
@@ -101,7 +102,7 @@ create_inhibitor_process()
                         --who="Jellyfin Inhibitor" \\
                         --why="There is at least one active session in Jellyfin" \\
                         --mode=block \\
-                        sudo mkdir /run/lock/"\$pid" && sudo tee \$\$ > /run/lock/"\$pid"/pid \\
+                        sudo mkdir /run/lock/"\$pid" && \$\$ | sudo tee /run/lock/"\$pid"/pid \\
                             && tail -f /dev/null
     fi
 }
@@ -115,7 +116,7 @@ while true; do
         kill_inhibitor_process
     fi
 
-    sleep $jf_delay
+    sleep $jellyfin_delay
 done
 JELLYFIN_INHIBITOR_SCRIPT
 
