@@ -58,19 +58,19 @@ fi
 
 echo "Installing Jellyfin systemd-inhibit Service"
 
-#if [ -f "/usr/sbin/jellyfin-systemd-inhibit.sh" ]; then
-    echo "/usr/sbin/jellyfin-systemd-inhibit.sh already exists..."
+if [ -f "/usr/local/bin/jellyfin-systemd-inhibit.sh" ]; then
+    echo "/usr/local/bin/jellyfin-systemd-inhibit.sh already exists..."
     read -rp "Do you want to overwrite the script (such as to change API Key)? [y/N]: " response
 
     if [ "$response" == "" ] || [ "$response" != "${response#[Nn]}" ]; then
         echo "Cancelling..."
         exit 0
     fi
-#fi
+fi
 
-#sudo mkdir -rp /etc/systemd/system
+sudo mkdir -rp /etc/systemd/system
 
-tee /usr/local/bin/jellyfin-systemd-inhibit.sh << JELLYFIN_INHIBITOR_SCRIPT
+sudo tee /usr/local/bin/jellyfin-systemd-inhibit.sh << JELLYFIN_INHIBITOR_SCRIPT
 #!/usr/bin/env bash
 
 jellyfin_url=$jf_url
@@ -120,3 +120,38 @@ while true; do
 done
 JELLYFIN_INHIBITOR_SCRIPT
 
+sudo chmod +x /usr/local/bin/jellyfin-systemd-inhibit.sh
+
+echo "Written Jellyfin systemd-inhibit script"
+
+sudo tee /etc/systemd/system/jellyfin-systemd-inhibit.service << JELLYFIN_INHIBITOR_SERVICE
+[Unit]
+Description=Jellyfin systemd-inhibitor
+After=jellyfin.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/jellyfin-systemd-inhibit.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+JELLYFIN_INHIBITOR_SERVICE
+
+sudo systemctl daemon-reload
+
+echo "Written and starting jellyfin-systemd-inhibit.service"
+sudo systemctl enable --now jellyfin-systemd-inhibit.service
+
+if sudo systemctl is-active --quiet jellyfin-systemd-inhibit; then
+    echo -e "\033[32mService is successfully activated\033[0m"
+
+    echo -e "\033[32mInstallation successful\033[0m"
+    echo "This service is now active in the background and will automatically start on reboot"
+else
+    echo -e "\033[31mService failed to start\033[0m"
+    echo "The service is installed, however did not activate successfully"
+fi
+
+echo "To find the logs, please use: journalctl -u jellyfin-systemd-inhibit -f"
+echo "Additionally, if there is an error with the variables in the script, please edit the script at: /usr/local/bin/jellyfin-systemd-inhibit.sh"
