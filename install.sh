@@ -68,9 +68,9 @@ if [ -f "/usr/local/bin/jellyfin-systemd-inhibit.sh" ]; then
     fi
 fi
 
-sudo mkdir -rp /etc/systemd/system
+sudo mkdir -p /etc/systemd/system
 
-sudo tee /usr/local/bin/jellyfin-systemd-inhibit.sh << JELLYFIN_INHIBITOR_SCRIPT
+sudo tee /usr/local/bin/jellyfin-systemd-inhibit.sh << JELLYFIN_INHIBITOR_SCRIPT > /dev/null
 #!/usr/bin/env bash
 
 jellyfin_url=$jf_url
@@ -80,7 +80,7 @@ pid="jellyfin-systemd-inhibitor.lock"
 
 check_jellyfin_sessions()
 {
-    session_response=\$(curl -H "Authorization: MediaBrowser Token=\$jellyfin_key" "\$jellyfin_url/Sessions?activeWithinSeconds=30")
+    session_response=\$(curl -sH "Authorization: MediaBrowser Token=\$jellyfin_key" "\$jellyfin_url/Sessions?activeWithinSeconds=30")
 
     if [ "\$session_response" = "[]" ]; then
         return 1
@@ -91,19 +91,23 @@ check_jellyfin_sessions()
 
 kill_inhibitor_process()
 {
-    sudo kill "\$(</run/lock/"\$pid"/pid)"
-    sudo rm -rf /run/lock/"\$pid"
+    if [ -d /run/lock/"\$pid" ]; then
+        kill "\$(</run/lock/"\$pid"/pid)"
+        rm -rf /run/lock/"\$pid"
+    fi
 }
 
 create_inhibitor_process()
 {
-    if [ -d /run/lock/"\$pid" ]; then
+    if [ ! -d /run/lock/"\$pid" ]; then
+        mkdir /run/lock/"\$pid"
+        echo \$\$ | tee /run/lock/"\$pid"/pid
+
         systemd-inhibit --what=shutdown:sleep:idle:handle-lid-switch:handle-power-key \\
                         --who="Jellyfin Inhibitor" \\
                         --why="There is at least one active session in Jellyfin" \\
                         --mode=block \\
-                        sudo mkdir /run/lock/"\$pid" && \$\$ | sudo tee /run/lock/"\$pid"/pid \\
-                            && tail -f /dev/null
+                        tail -f /dev/null &
     fi
 }
 
@@ -116,7 +120,7 @@ while true; do
         kill_inhibitor_process
     fi
 
-    sleep $jellyfin_delay
+    sleep "\$jellyfin_delay"s
 done
 JELLYFIN_INHIBITOR_SCRIPT
 
@@ -124,7 +128,7 @@ sudo chmod +x /usr/local/bin/jellyfin-systemd-inhibit.sh
 
 echo "Written Jellyfin systemd-inhibit script"
 
-sudo tee /etc/systemd/system/jellyfin-systemd-inhibit.service << JELLYFIN_INHIBITOR_SERVICE
+sudo tee /etc/systemd/system/jellyfin-systemd-inhibit.service << JELLYFIN_INHIBITOR_SERVICE > /dev/null
 [Unit]
 Description=Jellyfin systemd-inhibitor
 After=jellyfin.service
