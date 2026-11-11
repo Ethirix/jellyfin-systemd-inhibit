@@ -12,13 +12,16 @@ jf_delay=30
 
 print_help()
 {
-    echo "Usage: install.sh [OPTION]..."
+    echo -e "\033[33mUsage: install.sh [OPTION]...\033[0m"
     echo "Installs Jellyfin systemd-inhibit service to inhibit shutdown and idle states when there is an active Jellyfin Session."
-    echo -e "  \033[1m-a\033[0m - supplies the Jellyfin API Key used to build the service (will ask if not supplied)"
-    echo -e "  \033[1m-d\033[0m - sets the delay between Jellyfin session checks, in seconds (defaults to 30)"
-    echo -e "  \033[1m-h\033[0m - displays this help and exits"
-    echo -e "  \033[1m-u\033[0m - supplies the base Jellyfin URL (defaults to 'localhost:8096')"
+    echo -e "  \033[34m\033[1m-a\033[0m - supplies the Jellyfin API Key used to build the service (will ask if not supplied)"
+    echo -e "  \033[34m\033[1m-d\033[0m - sets the delay between Jellyfin session checks, in seconds (defaults to 30)"
+    echo -e "  \033[34m\033[1m-h\033[0m - displays this help and exits"
+    echo -e "  \033[34m\033[1m-u\033[0m - supplies the base Jellyfin URL (defaults to 'localhost:8096')"
 }
+
+echo -e "\033[36mJellyfin systemd-inhibit Service Installer\033[0m"
+echo -e "\033[36mhttps://github.com/Ethirix/jellyfin-systemd-inhibit\033[0m\n"
 
 while getopts ":a:d:h:u" opts; do
     case $opts in
@@ -29,8 +32,8 @@ while getopts ":a:d:h:u" opts; do
     esac
 done
 
-if ! sudo -p "Please confirm sudo access to install Jellyfin inhibitor: " true; then
-    echo "Error - sudo required to install Jellyfin inhibitor"
+if ! sudo -p "Please confirm sudo access to install Jellyfin inhibitor: " true &> /dev/null; then
+    echo -e "\033[31mError - sudo required to install Jellyfin inhibitor\033[0m"
     exit 1
 fi
 
@@ -39,27 +42,27 @@ if [ "$api_key" = "" ]; then
 fi
 
 if [ "$api_key" = "" ]; then
-    echo "Error - API Key is empty"
+    echo -e "\033[31mError - API Key is empty\033[0m"
     exit 1
 fi
 
 # Test Jellyfin API Key
 api_test=$(curl -o /dev/null -s -w "%{http_code}\n" -H "Authorization: MediaBrowser Token=$api_key" "$jf_url/Sessions")
 if [ "$api_test" = "401" ] || [ "$api_test" = "403" ]; then
-    echo "Error - API Key rejected by Jellyfin"
+    echo -e "\033[31mError - API Key rejected by Jellyfin\033[0m"
     exit 1
 elif [ "$api_test" = "000" ]; then
-    echo "Error - could not reach Jellyfin API"
+    echo -e "\033[31mError - could not reach Jellyfin API\033[0m"
     exit 1
 elif [ ! "$api_test" = "200" ]; then
-    echo "Error - Unknown error occured with Jellyfin API"
+    echo -e "\033[31mError - Unknown error occured with Jellyfin API\033[0m"
     exit 1
 fi
 
-echo "Installing Jellyfin systemd-inhibit Service"
+echo -e "\033[35mInstalling Jellyfin systemd-inhibit Service\033[0m"
 
 if [ -f "/usr/local/bin/jellyfin-systemd-inhibit.sh" ]; then
-    echo "/usr/local/bin/jellyfin-systemd-inhibit.sh already exists..."
+    echo -e "\033[33m/usr/local/bin/jellyfin-systemd-inhibit.sh already exists...\033[0m"
     read -rp "Do you want to overwrite the script (such as to change API Key)? [y/N]: " response
 
     if [ "$response" == "" ] || [ "$response" != "${response#[Nn]}" ]; then
@@ -126,7 +129,7 @@ JELLYFIN_INHIBITOR_SCRIPT
 
 sudo chmod +x /usr/local/bin/jellyfin-systemd-inhibit.sh
 
-echo "Written Jellyfin systemd-inhibit script"
+echo -e "\033[90mWritten Jellyfin systemd-inhibit script\033[0m"
 
 sudo tee /etc/systemd/system/jellyfin-systemd-inhibit.service << JELLYFIN_INHIBITOR_SERVICE > /dev/null
 [Unit]
@@ -144,8 +147,8 @@ JELLYFIN_INHIBITOR_SERVICE
 
 sudo systemctl daemon-reload
 
-echo "Written and starting jellyfin-systemd-inhibit.service"
-sudo systemctl enable --now jellyfin-systemd-inhibit.service
+echo -e "\033[90mWritten and starting jellyfin-systemd-inhibit.service\033[0m"
+sudo systemctl enable --now jellyfin-systemd-inhibit.service &> /dev/null
 
 if sudo systemctl is-active --quiet jellyfin-systemd-inhibit; then
     echo -e "\033[32mService is successfully activated\033[0m"
@@ -153,9 +156,9 @@ if sudo systemctl is-active --quiet jellyfin-systemd-inhibit; then
     echo -e "\033[32mInstallation successful\033[0m"
     echo "This service is now active in the background and will automatically start on reboot"
 else
-    echo -e "\033[31mService failed to start\033[0m"
+    echo -e "\033[31mError - Service failed to start\033[0m"
     echo "The service is installed, however did not activate successfully"
 fi
 
-echo "To find the logs, please use: journalctl -u jellyfin-systemd-inhibit -f"
-echo "Additionally, if there is an error with the variables in the script, please edit the script at: /usr/local/bin/jellyfin-systemd-inhibit.sh"
+echo -e "\033[90mTo find the logs, please use: journalctl -u jellyfin-systemd-inhibit -f\033[0m"
+echo -e "\033[90mAdditionally, if there is an error with the variables in the script, please edit the script at: /usr/local/bin/jellyfin-systemd-inhibit.sh\033[0m"
